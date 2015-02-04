@@ -8,6 +8,10 @@
 
 //This project was forked off of https://github.com/cameraready/TrinketChronodotNeopixelClock and modified to work for a 12-led ring
 
+
+//need to put in special holidays!!!
+
+
 #include <Adafruit_NeoPixel.h>
 #include <TinyWireM.h>
 #include <TinyRTClib.h>
@@ -42,15 +46,18 @@ uint16_t currYear;           // keep track of current year to limit the number o
 //uint32_t minute_color = strip.Color(0,75,0); //Green
 //SendOnlySoftwareSerial Serial(3);  // Serial transmission on Trinket Pin 3
 
-uint16_t animTimer;
+uint32_t animTimer;
+uint32_t colorFadeTimer;
+
 
 // store color values in program memory for blend sweep
+/*
 static const uint32_t PROGMEM colors[] = {
   0x0021DE, 0x0042BD, 0x00609F, 0x00817E, 0x00A25D, 0x00C03F, 
   0x00E11E, 0x00FF00, 0x1EE100, 0x3FC000, 0x609F00, 0x7E8100, 
   0x9F6000, 0xC03F00, 0xDE2100, 0xFF0000, 0xDE0021, 0xC0003F, 
   0x9F0060, 0x7E0081, 0x60009F, 0x3F00C0, 0x1E00E1, 0x0000FF
-};
+};*/
 
 // store DST change dates to save program compile size (Years 2014 - 2037)
 static const uint32_t PROGMEM DST[] = {
@@ -79,6 +86,7 @@ void setup() {
   //if (! rtc.isrunning()) {      // Uncomment lines below first use of clock to set time
     // following line sets the RTC to the date & time this sketch was compiled
     //rtc.adjust(DateTime(__DATE__, __TIME__));
+    //rtc.adjust(DateTime(2015, 2, 3, 22, 16, 0));
   //}
 /*
   DateTime now = rtc.now();       // Get the RTC info
@@ -121,6 +129,8 @@ void loop() {
   //else LED_Sec = ((now.second()+(36))%24)+12; //offset = 36;
   LED_Sec = map(now.second(),0,59,0,12); //offset = 36;
   
+  
+  
   // Sweep animation for change of hour and minute
   if (now.second() == 0) 
   {
@@ -146,8 +156,7 @@ void loop() {
    //regular animation
   for (int i = 0; i<NUMPIXELS; i++)
   {
-    
-    if (i == hours)
+     if (i == hours)
       strip.setPixelColor(hours, 0x64);         //strip.Color(0,0,100));
     else if (i == LED_Sec && i == LED_Min)
         strip.setPixelColor(LED_Sec, 0x4b4b00); //strip.Color(75,75,0));
@@ -156,7 +165,7 @@ void loop() {
       strip.setPixelColor(LED_Min, 0x4b00);     //strip.Color(0,75,0));
     else if (i == LED_Sec)
       //strip.setPixelColor(LED_Sec, 0x4b0000 + animTimer);   //strip.Color(75,0,0));
-        strip.setPixelColor(LED_Sec, 1000 * now.second());
+        strip.setPixelColor(LED_Sec, colorFadeTimer);
   }
   
  }
@@ -166,11 +175,30 @@ void loop() {
   delay(25); // was 250. Caused occasional hesitations in changing of seconds.
   
   animTimer += 1;
-  if(animTimer > 0xFFFFFFFF)
+  if(animTimer > 0x00FFFFFF)
   {
   animTimer = 0;
   }
+  
+  
+   if(colorFadeTimer > 0x00FFFFFF)
+   {
+    colorFadeTimer=0;
+   }else if(colorFadeTimer > 0x0000FFFF){
+     colorFadeTimer+=0x00080000;
+     colorFadeTimer &= 0xFFFF0000;
+   }else if(colorFadeTimer > 0x000000FF){
+      colorFadeTimer+=0x00000800;
+     colorFadeTimer &=  0xFFFFFF00;
+   }else{
+      colorFadeTimer+=0x00000008;
+     }
  
+ 
+  if(colorFadeTimer > 0x00FFFFFF)
+  {
+    colorFadeTimer = 0;
+  }
 }
 /* Original method that utilizaes function
 // Calculate the start and end of DST in UTC
