@@ -48,7 +48,8 @@ uint16_t currYear;           // keep track of current year to limit the number o
 
 uint32_t animTimer;
 uint32_t colorFadeTimer;
-
+uint32_t fadedColor;
+uint8_t colorFadeSpeed = 1;
 
 // store color values in program memory for blend sweep
 /*
@@ -94,6 +95,8 @@ void setup() {
   currYear = now.year();          // initialize current year
 */
 }
+
+
 
 void loop() {
   DateTime now = rtc.now();//get time from the I2C interface
@@ -145,27 +148,24 @@ void loop() {
    
  if(enableColorWipe == true)
  {
-   
+   colorFadeSpeed = 5;
    animateColorWipe(hours);
  
  }
  else
  {
-   
+   colorFadeSpeed = 1;
      
    //regular animation
   for (int i = 0; i<NUMPIXELS; i++)
   {
-     if (i == hours)
-      strip.setPixelColor(hours, 0x64);         //strip.Color(0,0,100));
-    else if (i == LED_Sec && i == LED_Min)
-        strip.setPixelColor(LED_Sec, 0x4b4b00); //strip.Color(75,75,0));
-    //  strip.setPixelColor(LED_Sec, blend(strip.Color(0,75,0), strip.Color(75,0,0))); // blend function takes too much memory??
+     if (i == LED_Sec)
+        strip.setPixelColor(LED_Sec, fadedColor);
     else if (i == LED_Min)
-      strip.setPixelColor(LED_Min, 0x4b00);     //strip.Color(0,75,0));
-    else if (i == LED_Sec)
+      strip.setPixelColor(LED_Min, fadedColor);     //strip.Color(0,75,0));
+    else if (i == hours)
       //strip.setPixelColor(LED_Sec, 0x4b0000 + animTimer);   //strip.Color(75,0,0));
-        strip.setPixelColor(LED_Sec, colorFadeTimer);
+       strip.setPixelColor(hours, fadedColor);         //strip.Color(0,0,100));  
   }
   
  }
@@ -181,24 +181,16 @@ void loop() {
   }
   
   
-   if(colorFadeTimer > 0x00FFFFFF)
-   {
-    colorFadeTimer=0;
-   }else if(colorFadeTimer > 0x0000FFFF){
-     colorFadeTimer+=0x00080000;
-     colorFadeTimer &= 0xFFFF0000;
-   }else if(colorFadeTimer > 0x000000FF){
-      colorFadeTimer+=0x00000800;
-     colorFadeTimer &=  0xFFFFFF00;
-   }else{
-      colorFadeTimer+=0x00000008;
-     }
- 
- 
-  if(colorFadeTimer > 0x00FFFFFF)
-  {
-    colorFadeTimer = 0;
-  }
+  fadedColor = getColorFade(colorFadeTimer );
+  
+  colorFadeSpeed = 20;
+ colorFadeTimer+=colorFadeSpeed;
+if(colorFadeTimer>= 0x00000600)
+{
+colorFadeTimer= 0;
+}
+
+   
 }
 /* Original method that utilizaes function
 // Calculate the start and end of DST in UTC
@@ -275,7 +267,7 @@ void animateColorWipe(uint8_t h) {
   
   for(uint8_t i=1; i<=h; i++) { // Start at 1 o'clock
     mystep = (animTimer / 1)%12;
-    strip.setPixelColor(mystep, 0x64+animTimer*19); // Hours: 1,2,3,4,5,6,7,8,9,10,11,0    
+    strip.setPixelColor(mystep, fadedColor ); // Hours: 1,2,3,4,5,6,7,8,9,10,11,0    
     
   }
      
@@ -285,4 +277,35 @@ void animateColorWipe(uint8_t h) {
    colorWipeCounter=0;
    enableColorWipe = false;  
  }
+}
+
+uint32_t getColorFade(uint32_t counter)
+{
+uint32_t  normalizedCounter = counter& 0x000000FF; //remove the 'stage'
+  
+if(counter< 0x00000100){ //stage 1 - ramp up blue from purple
+return (normalizedCounter& 0x000000FF) | 0x00FF0000;
+ 
+}else if(counter< 0x00000200){//stage 2 - ramp down the red for pure blue
+
+return  0x000000FF | ( (0x00FF0000 - normalizedCounter<< 16)) ;
+  
+}else if(counter< 0x00000300){//stage 3 - ramp up the green for teal
+
+return  ((normalizedCounter<<8) & 0x0000FF00) | 0x000000FF;
+  
+}else if(counter< 0x00000400){//stage 4 - ramp down the blue for pure green
+
+return  0x0000FF00 | ((0x000000FF - normalizedCounter)) ;
+
+}else if(counter< 0x00000500){//stage 5 - ramp up the red for yellow
+
+return  ((normalizedCounter<<16) & 0x00FF0000) | 0x0000FF00;
+
+}else if(counter< 0x00000600){//stage 6 - ramp down the green for pure red
+
+return  0x00FF0000 | (0x0000FF00 & (0x0000FF00 - (normalizedCounter<< 8))) ;
+
+}
+
 }
