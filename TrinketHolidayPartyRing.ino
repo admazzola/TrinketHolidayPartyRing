@@ -52,13 +52,11 @@ uint32_t fadedColor;
 uint8_t colorFadeSpeed = 1;
 
 // store color values in program memory for blend sweep
-/*
-static const uint32_t PROGMEM colors[] = {
-  0x0021DE, 0x0042BD, 0x00609F, 0x00817E, 0x00A25D, 0x00C03F, 
-  0x00E11E, 0x00FF00, 0x1EE100, 0x3FC000, 0x609F00, 0x7E8100, 
-  0x9F6000, 0xC03F00, 0xDE2100, 0xFF0000, 0xDE0021, 0xC0003F, 
-  0x9F0060, 0x7E0081, 0x60009F, 0x3F00C0, 0x1E00E1, 0x0000FF
-};*/
+
+uint32_t colors[] = {
+  0x00FF0000,0x00FF0055,0x00FF00BB,0x00FF00FF,0x00BB00FF,0x005500FF,0x000000FF,0x000055FF,0x0000BBFF,0x0000FFFF,
+  0x0000FFBB, 0x0000FF55 
+};
 
 // store DST change dates to save program compile size (Years 2014 - 2037)
 static const uint32_t PROGMEM DST[] = {
@@ -148,7 +146,7 @@ void loop() {
    
  if(enableColorWipe == true)
  {
-   colorFadeSpeed = 5;
+   colorFadeSpeed = 25;
    animateColorWipe(hours);
  
  }
@@ -157,15 +155,18 @@ void loop() {
    colorFadeSpeed = 1;
      
    //regular animation
-  for (int i = 0; i<NUMPIXELS; i++)
+  for ( short i = 0; i<NUMPIXELS; i++)
   {
+    LED_Min=1;
+    hours = 2;
+    
      if (i == LED_Sec)
-        strip.setPixelColor(LED_Sec, fadedColor);
+       strip.setPixelColor(LED_Sec, fadedColor);
     else if (i == LED_Min)
-      strip.setPixelColor(LED_Min, fadedColor);     //strip.Color(0,75,0));
+      strip.setPixelColor(LED_Min, colors[i]);     //strip.Color(0,75,0));
     else if (i == hours)
       //strip.setPixelColor(LED_Sec, 0x4b0000 + animTimer);   //strip.Color(75,0,0));
-       strip.setPixelColor(hours, fadedColor);         //strip.Color(0,0,100));  
+       strip.setPixelColor(hours, colors[i]);         //strip.Color(0,0,100));  
   }
   
  }
@@ -183,7 +184,7 @@ void loop() {
   
   fadedColor = getColorFade(colorFadeTimer );
   
-  colorFadeSpeed = 20;
+  
  colorFadeTimer+=colorFadeSpeed;
 if(colorFadeTimer>= 0x00000600)
 {
