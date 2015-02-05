@@ -21,12 +21,11 @@
 //#include <SendOnlySoftwareSerial.h>  // See http://forum.arduino.cc/index.php?topic=112013.0
 
 #define LED_PIN 1
-#define FIRST_DAY_WK 1       // Sunday = 1
-#define SECS_PER_DAY  (86400UL)
 #define localOffset 9 //12 - 3
 #define NUMPIXELS 12
 
-boolean enableColorWipe = false;
+
+uint8_t crazyAnimationType = 0;
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
@@ -46,8 +45,8 @@ uint16_t currYear;           // keep track of current year to limit the number o
 //uint32_t minute_color = strip.Color(0,75,0); //Green
 //SendOnlySoftwareSerial Serial(3);  // Serial transmission on Trinket Pin 3
 
-uint32_t animTimer;
-uint32_t colorFadeTimer;
+uint16_t animTimer;
+uint16_t colorFadeTimer;
 uint32_t fadedColor;
 uint8_t colorFadeSpeed = 1;
 
@@ -57,6 +56,23 @@ uint32_t colors[] = {
   0x00FF0000,0x00FF0055,0x00FF00BB,0x00FF00FF,0x00BB00FF,0x005500FF,0x000000FF,0x000055FF,0x0000BBFF,0x0000FFFF,
   0x0000FFBB, 0x0000FF55 
 };
+
+#define NUM_HOLIDAYS 5
+
+uint32_t holidayColor[NUM_HOLIDAYS][2] = { { 0x00FF0000,0x0000FF00 },   //red green
+                               { 0x00A117BE,0x0014DF1B },   //purple green 
+                               { 0x00FF0000,0x002423CA },  //red blue
+                               { 0x00CFC72A,0x00F46A42 },  //yellow pink
+                               { 0x0032DA3D,0x003433DA }  //green blue
+                            };
+                            
+uint16_t holidayDates[NUM_HOLIDAYS] = {0x0C19,  // December 25th 
+                               0x0B0B, // 11 11
+                               0x0704, //fourth of july
+                               0x0A09, //leif erickson day
+                               0x0101, //new years
+                           };  
+
 
 // store DST change dates to save program compile size (Years 2014 - 2037)
 static const uint32_t PROGMEM DST[] = {
@@ -94,7 +110,9 @@ void setup() {
 */
 }
 
-
+uint8_t LED_Min;
+uint8_t LED_Sec;
+ uint8_t holiday;
 
 void loop() {
   DateTime now = rtc.now();//get time from the I2C interface
@@ -119,54 +137,82 @@ void loop() {
   //if (hours >= 12) hours -= 12; // change to 12 hour clock (changed to >= so that 12pm displays on LED 0)
   
   //int LED_Min = map(now.minute(),0,59,12,35); // Note the map() function rounds numbers down which can cause the minutes to look slow
-  uint8_t LED_Min;
+  
   LED_Min = map(now.minute(),0,59,0,12)+0;
   
   //int LED_Sec = map(now.second(),0,59,12,35);
-  uint8_t LED_Sec;
+  
   //uint8_t offset;
   //if ((now.minute() & 1) == 0) LED_Sec = ((now.second()+(0))%24)+12; //offset = 0;
   //else if ((now.minute() & 1) == 1 && now.second() < 48) LED_Sec = ((now.second()+(12))%24)+12; //offset = 12;
   //else LED_Sec = ((now.second()+(36))%24)+12; //offset = 36;
   LED_Sec = map(now.second(),0,59,0,12); //offset = 36;
   
-  
+ holiday = getHoliday(now.month(),now.day());
   
   // Sweep animation for change of hour and minute
   if (now.second() == 0) 
   {
-    enableColorWipe = true;
+    crazyAnimationType = 1;
+     
+  }
+  if((now.hour() == 11 || now.hour() == 23) && now.minute() == 11){
+    crazyAnimationType = 2;
   }
   
-  
-   for (int i = 0; i<NUMPIXELS; i++)
+   for (uint8_t i = 0; i<NUMPIXELS; i++)
   {
     strip.setPixelColor(i, 0);    //clear pixels
   }
    
- if(enableColorWipe == true)
+ if(crazyAnimationType > 0)
  {
-   colorFadeSpeed = 25;
-   animateColorWipe(hours);
+  
+   animateColorWipe(holiday);
  
  }
  else
  {
    colorFadeSpeed = 1;
      
+     uint32_t outputColor;
+     
+     uint8_t partyPinA = (animTimer /2 )% 12;
+     uint8_t partyPinB = (((animTimer+1) /2)  )% 12;
+        
    //regular animation
-  for ( short i = 0; i<NUMPIXELS; i++)
+  for (unsigned short i = 0; i<NUMPIXELS; i++)
   {
-    LED_Min=1;
-    hours = 2;
     
-     if (i == LED_Sec)
+      
+     if (i == LED_Sec){
        strip.setPixelColor(LED_Sec, fadedColor);
-    else if (i == LED_Min)
-      strip.setPixelColor(LED_Min, colors[i]);     //strip.Color(0,75,0));
-    else if (i == hours)
-      //strip.setPixelColor(LED_Sec, 0x4b0000 + animTimer);   //strip.Color(75,0,0));
-       strip.setPixelColor(hours, colors[i]);         //strip.Color(0,0,100));  
+     }else if (i == LED_Min){
+      if(holiday >= 0)
+        outputColor = holidayColor[holiday][1];        
+      else
+        outputColor = colors[i]; 
+    
+    strip.setPixelColor(LED_Min, outputColor);    
+      
+    }else if (i == hours){
+      if(holiday >= 0)
+        outputColor = holidayColor[holiday][0];        
+      else
+        outputColor = colors[i];     
+        
+     strip.setPixelColor(hours, outputColor);    
+    }else if(holiday >= 0){
+      if(i == partyPinA)
+      {
+         strip.setPixelColor(partyPinA, fadedColor & 0x000B0B0B);      
+      }
+      if(i == partyPinB)
+      {
+         strip.setPixelColor(partyPinB, 0x00020202);      
+      }
+    
+    }
   }
   
  }
@@ -176,13 +222,13 @@ void loop() {
   delay(25); // was 250. Caused occasional hesitations in changing of seconds.
   
   animTimer += 1;
-  if(animTimer > 0x00FFFFFF)
+  if(animTimer > 0x0000FFFF)
   {
   animTimer = 0;
   }
   
   
-  fadedColor = getColorFade(colorFadeTimer );
+  fadedColor = getColorFade(colorFadeTimer , (uint8_t) (colorFadeTimer >> 8) );
   
   
  colorFadeTimer+=colorFadeSpeed;
@@ -260,53 +306,79 @@ uint8_t colorWipeCounter = 0;
 
 
 // Animation for change of hour
-void animateColorWipe(uint8_t h) {  
-  // sweep hours up to current hour
-  if (h == 0) {h=12;} // Special case for noon and midnight
+void animateColorWipe(uint8_t holiday) {  
   
-  int mystep = 0;
+ uint8_t partyPin = (animTimer/6 )%12;
+ 
+  colorFadeSpeed = 15;
   
-  for(uint8_t i=1; i<=h; i++) { // Start at 1 o'clock
-    mystep = (animTimer / 1)%12;
-    strip.setPixelColor(mystep, fadedColor ); // Hours: 1,2,3,4,5,6,7,8,9,10,11,0    
+  strip.setPixelColor(animTimer %12, fadedColor ); // Hours: 1,2,3,4,5,6,7,8,9,10,11,0 
+  
+  //if(holiday > 0)
+  //  strip.setPixelColor(animTimer %12, holidayColor[holiday][0] ); 
+         
+     if(crazyAnimationType == 2)
+    {              
+      strip.setPixelColor(partyPin, colors[partyPin] );      
+     // if(holiday > 0)
+     //     strip.setPixelColor(partyPin, holidayColor[holiday][1] ); 
+      
+      // strip.setPixelColor((animTimer + 6)%12, fadedColor ); 
+      // strip.setPixelColor((animTimer + 9)%12, fadedColor ); 
+    }
     
-  }
+      
      
  colorWipeCounter+=1;
- if(colorWipeCounter >= h )
+ if(colorWipeCounter >= 26 )
  {
    colorWipeCounter=0;
-   enableColorWipe = false;  
+   crazyAnimationType = 0;  
  }
 }
 
-uint32_t getColorFade(uint32_t counter)
+uint32_t getColorFade(uint8_t counter, uint8_t stage)
 {
-uint32_t  normalizedCounter = counter& 0x000000FF; //remove the 'stage'
+
   
-if(counter< 0x00000100){ //stage 1 - ramp up blue from purple
-return (normalizedCounter& 0x000000FF) | 0x00FF0000;
+if(stage == 0 ){ //stage 1 - ramp up blue from purple
+return (counter& 0x000000FF) | 0x00FF0000;
  
-}else if(counter< 0x00000200){//stage 2 - ramp down the red for pure blue
+}else if(stage == 1){//stage 2 - ramp down the red for pure blue
 
-return  0x000000FF | ( (0x00FF0000 - normalizedCounter<< 16)) ;
+return  0x000000FF | ( (0x00FF0000 - counter<< 16)) ;
   
-}else if(counter< 0x00000300){//stage 3 - ramp up the green for teal
+}else if(stage == 2){//stage 3 - ramp up the green for teal
 
-return  ((normalizedCounter<<8) & 0x0000FF00) | 0x000000FF;
+return  ((counter<<8) & 0x0000FF00) | 0x000000FF;
   
-}else if(counter< 0x00000400){//stage 4 - ramp down the blue for pure green
+}else if(stage == 3){//stage 4 - ramp down the blue for pure green
 
-return  0x0000FF00 | ((0x000000FF - normalizedCounter)) ;
+return  0x0000FF00 | ((0x000000FF - counter)) ;
 
-}else if(counter< 0x00000500){//stage 5 - ramp up the red for yellow
+}else if(stage == 4 ){//stage 5 - ramp up the red for yellow
 
-return  ((normalizedCounter<<16) & 0x00FF0000) | 0x0000FF00;
+return  ((counter<<16) & 0x00FF0000) | 0x0000FF00;
 
-}else if(counter< 0x00000600){//stage 6 - ramp down the green for pure red
+}else if(stage == 5){//stage 6 - ramp down the green for pure red
 
-return  0x00FF0000 | (0x0000FF00 & (0x0000FF00 - (normalizedCounter<< 8))) ;
+return  0x00FF0000 | (0x0000FF00 & (0x0000FF00 - (counter<< 8))) ;
 
 }
+}
+
+uint8_t getHoliday(uint8_t month, uint8_t day)
+{
+   
+
+for(uint8_t i=0;i<NUM_HOLIDAYS;i++)
+{
+   uint16_t holiday = holidayDates[i];
+   if((holiday >> 8) == month && (holiday & 0x00FF) == day )
+    {
+      return i;    
+    }   
+  }
+return -1;
 
 }
