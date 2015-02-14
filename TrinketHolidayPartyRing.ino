@@ -21,11 +21,11 @@
 //#include <SendOnlySoftwareSerial.h>  // See http://forum.arduino.cc/index.php?topic=112013.0
 
 #define LED_PIN 1
-#define localOffset 9 //12 - 3
+#define localOffset 0 //12 - 3
 #define NUMPIXELS 12
 
 
-uint8_t crazyAnimationType = 0;
+
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
@@ -59,16 +59,16 @@ uint32_t colors[] = {
 
 #define NUM_HOLIDAYS 5
 
-uint32_t holidayColor[NUM_HOLIDAYS][2] = { { 0x00FF0000,0x0000FF00 },   //red green
+uint32_t holidayColor[NUM_HOLIDAYS][2] = { { 0x00A117BE,0x00FFFFFF },   //purple white
                                { 0x00A117BE,0x0014DF1B },   //purple green 
-                               { 0x00FF0000,0x002423CA },  //red blue
+                               { 0x0014DF1B,0x00FFFFFF },  //green white
                                { 0x00CFC72A,0x00F46A42 },  //yellow pink
                                { 0x0032DA3D,0x003433DA }  //green blue
                             };
                             
-uint16_t holidayDates[NUM_HOLIDAYS] = {0x0C19,  // December 25th 
+uint16_t holidayDates[NUM_HOLIDAYS] = {0x0C10,  // December 16th 
                                0x0B0B, // 11 11
-                               0x0704, //fourth of july
+                               0x050D, // may 13
                                0x0A09, //leif erickson day
                                0x0101, //new years
                            };  
@@ -101,7 +101,7 @@ void setup() {
   //if (! rtc.isrunning()) {      // Uncomment lines below first use of clock to set time
     // following line sets the RTC to the date & time this sketch was compiled
     //rtc.adjust(DateTime(__DATE__, __TIME__));
-    //rtc.adjust(DateTime(2015, 2, 3, 22, 16, 0));
+    //rtc.adjust(DateTime(2015, 2, 5, 20, 16, 0));
   //}
 /*
   DateTime now = rtc.now();       // Get the RTC info
@@ -114,8 +114,11 @@ uint8_t LED_Min;
 uint8_t LED_Sec;
  uint8_t holiday;
 
+
 void loop() {
-  DateTime now = rtc.now();//get time from the I2C interface
+  uint8_t crazyAnimationType = 0;
+  
+   DateTime now = rtc.now();//get time from the I2C interface
   
   
   if (currYear != now.year()) // When year changes update dstUTC and stdUTC
@@ -168,7 +171,7 @@ void loop() {
  if(crazyAnimationType > 0)
  {
   
-   animateColorWipe(holiday);
+   animateColorWipe(crazyAnimationType);
  
  }
  else
@@ -178,7 +181,7 @@ void loop() {
      uint32_t outputColor;
      
      uint8_t partyPinA = (animTimer /2 )% 12;
-     uint8_t partyPinB = (((animTimer+1) /2)  )% 12;
+    // uint8_t partyPinB = (((animTimer+1) /2)  )% 12;
         
    //regular animation
   for (unsigned short i = 0; i<NUMPIXELS; i++)
@@ -188,29 +191,30 @@ void loop() {
      if (i == LED_Sec){
        strip.setPixelColor(LED_Sec, fadedColor);
      }else if (i == LED_Min){
-      if(holiday >= 0)
-        outputColor = holidayColor[holiday][1];        
+      if(holiday > 0)
+        outputColor = holidayColor[holiday-1][1];        
       else
         outputColor = colors[i]; 
     
     strip.setPixelColor(LED_Min, outputColor);    
       
     }else if (i == hours){
-      if(holiday >= 0)
-        outputColor = holidayColor[holiday][0];        
+      if(holiday > 0)
+        outputColor = holidayColor[holiday-1][0];        
       else
         outputColor = colors[i];     
         
      strip.setPixelColor(hours, outputColor);    
-    }else if(holiday >= 0){
+    }else if(holiday > 0){
+      
       if(i == partyPinA)
       {
          strip.setPixelColor(partyPinA, fadedColor & 0x000B0B0B);      
       }
-      if(i == partyPinB)
-      {
-         strip.setPixelColor(partyPinB, 0x00020202);      
-      }
+//if(i == partyPinB)
+   //   {
+     //    strip.setPixelColor(partyPinB, 0x00020202);      
+     // }
     
     }
   }
@@ -306,25 +310,17 @@ uint8_t colorWipeCounter = 0;
 
 
 // Animation for change of hour
-void animateColorWipe(uint8_t holiday) {  
+void animateColorWipe(uint8_t crazyAnimationType) {  
   
  uint8_t partyPin = (animTimer/6 )%12;
  
   colorFadeSpeed = 15;
   
   strip.setPixelColor(animTimer %12, fadedColor ); // Hours: 1,2,3,4,5,6,7,8,9,10,11,0 
-  
-  //if(holiday > 0)
-  //  strip.setPixelColor(animTimer %12, holidayColor[holiday][0] ); 
-         
+       
      if(crazyAnimationType == 2)
-    {              
-      strip.setPixelColor(partyPin, colors[partyPin] );      
-     // if(holiday > 0)
-     //     strip.setPixelColor(partyPin, holidayColor[holiday][1] ); 
-      
-      // strip.setPixelColor((animTimer + 6)%12, fadedColor ); 
-      // strip.setPixelColor((animTimer + 9)%12, fadedColor ); 
+    {   
+      strip.setPixelColor(partyPin, colors[partyPin] ); 
     }
     
       
@@ -367,18 +363,21 @@ return  0x00FF0000 | (0x0000FF00 & (0x0000FF00 - (counter<< 8))) ;
 }
 }
 
-uint8_t getHoliday(uint8_t month, uint8_t day)
+uint8_t getHoliday(uint8_t m, uint8_t d)
 {
    
 
 for(uint8_t i=0;i<NUM_HOLIDAYS;i++)
 {
-   uint16_t holiday = holidayDates[i];
-   if((holiday >> 8) == month && (holiday & 0x00FF) == day )
+ 
+   if((holidayDates[i] >> 8) == m && (holidayDates[i] & 0x00FF) == d )
     {
-      return i;    
+      return i+1;    
     }   
-  }
-return -1;
+  
 
+
+}
+
+return 0;
 }
